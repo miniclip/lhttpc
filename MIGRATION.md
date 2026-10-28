@@ -3,6 +3,19 @@
 Whenever there's an interface breaking change (a change in the project's major version),
 required migration instructions will be detailed in this file.
 
+## From [4.x] to [5.x]
+
+### Update
+
+- your runtime to OTP 27, or later (OTP 22 to 26 are no longer supported)
+- your Hex dependency constraint, e.g. from `{mc_lhttpc, "~> 4.3"}` to `{mc_lhttpc, "~> 5.0"}`
+
+### Other info
+
+- the public interface is unchanged
+- exported type `lhttpc:socket()` is now `inet:socket() | ssl:sslsocket()` (was `_`);
+a `dialyzer` run might put into evidence new warnings in your code
+
 ## From [3.x] to [4.x]
 
 ### Update

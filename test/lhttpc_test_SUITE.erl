@@ -1,4 +1,4 @@
-%%% -*- coding: latin-1 -*-
+%%% -*- coding: utf-8 -*-
 %%% ----------------------------------------------------------------------------
 %%% Copyright (c) 2009, Erlang Training and Consulting Ltd.
 %%% All rights reserved.
@@ -25,12 +25,11 @@
 %%% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%% ----------------------------------------------------------------------------
 
-%%% @author Oscar Hellström <oscar@hellstrom.st>
+%%% @author Oscar HellstrÃ¶m <oscar@hellstrom.st>
 -module(lhttpc_test_SUITE).
 -compile(export_all).
 
 -export([test_no/2]).
--import(webserver, [start/3, start/4]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -209,7 +208,7 @@ simple_get_ipv6(_Config) ->
 -endif.
 
 empty_get(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun empty_body/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun empty_body/5]),
     URL = url(Port, "/empty"),
     {ok, Response} = lhttpc:request(URL, "GET", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
@@ -218,7 +217,7 @@ empty_get(_Config) ->
 basic_auth(_Config) ->
     User = "foo",
     Passwd = "bar",
-    Port = start(?PROJECT_ROOT, gen_tcp, [basic_auth_responder(User, Passwd)]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [basic_auth_responder(User, Passwd)]),
     URL = url(Port, "/empty", User, Passwd),
     {ok, Response} = lhttpc:request(URL, "GET", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
@@ -227,7 +226,7 @@ basic_auth(_Config) ->
 missing_basic_auth(_Config) ->
     User = "foo",
     Passwd = "bar",
-    Port = start(?PROJECT_ROOT, gen_tcp, [basic_auth_responder(User, Passwd)]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [basic_auth_responder(User, Passwd)]),
     URL = url(Port, "/empty"),
     {ok, Response} = lhttpc:request(URL, "GET", [], 1000),
     ?assertEqual({401, "Unauthorized"}, status(Response)),
@@ -236,14 +235,14 @@ missing_basic_auth(_Config) ->
 wrong_basic_auth(_Config) ->
     User = "foo",
     Passwd = "bar",
-    Port = start(?PROJECT_ROOT, gen_tcp, [basic_auth_responder(User, Passwd)]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [basic_auth_responder(User, Passwd)]),
     URL = url(Port, "/empty", User, "wrong_password"),
     {ok, Response} = lhttpc:request(URL, "GET", [], 1000),
     ?assertEqual({401, "Unauthorized"}, status(Response)),
     ?assertEqual(<<"wrong_auth">>, body(Response)).
 
 get_with_mandatory_hdrs(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
     URL = url(Port, "/host"),
     Body = <<?DEFAULT_STRING>>,
     Hdrs = [
@@ -255,7 +254,7 @@ get_with_mandatory_hdrs(_Config) ->
     ?assertEqual(<<?DEFAULT_STRING>>, body(Response)).
 
 get_with_mandatory_hdrs_by_atoms(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
     URL = url(Port, "/host"),
     Body = <<?DEFAULT_STRING>>,
     Hdrs = [
@@ -267,7 +266,7 @@ get_with_mandatory_hdrs_by_atoms(_Config) ->
     ?assertEqual(<<?DEFAULT_STRING>>, body(Response)).
 
 get_with_mandatory_hdrs_by_binaries(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
     URL = url(Port, "/host"),
     Body = <<?DEFAULT_STRING>>,
     Hdrs = [
@@ -279,7 +278,7 @@ get_with_mandatory_hdrs_by_binaries(_Config) ->
     ?assertEqual(<<?DEFAULT_STRING>>, body(Response)).
 
 get_with_connect_options(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun empty_body/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun empty_body/5]),
     URL = url(Port, "/empty"),
     Options = [{connect_options, [{ip, {127, 0, 0, 1}}, {port, 0}]}],
     {ok, Response} = lhttpc:request(URL, "GET", [], [], 1000, Options),
@@ -287,14 +286,14 @@ get_with_connect_options(_Config) ->
     ?assertEqual(<<>>, body(Response)).
 
 no_content_length(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun no_content_length/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun no_content_length/5]),
     URL = url(Port, "/no_cl"),
     {ok, Response} = lhttpc:request(URL, "GET", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
     ?assertEqual(<<?DEFAULT_STRING>>, body(Response)).
 
 no_content_length_1_0(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun no_content_length_1_0/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun no_content_length_1_0/5]),
     URL = url(Port, "/no_cl"),
     {ok, Response} = lhttpc:request(URL, "GET", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
@@ -308,7 +307,7 @@ trailing_space_header(_Config) ->
 %% which can cause crash in lhttpc_client:body_type when Content-Length
 %% is converted from list to integer
 trailing_space_header(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun trailing_space_header/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun trailing_space_header/5]),
     URL = url(Port, "/no_cl"),
     {ok, Response} = lhttpc:request(URL, "GET", [], 1000),
     Headers = headers(Response),
@@ -317,56 +316,56 @@ trailing_space_header(_Config) ->
 -endif.
 
 get_not_modified(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun not_modified_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun not_modified_response/5]),
     URL = url(Port, "/not_modified"),
     {ok, Response} = lhttpc:request(URL, "GET", [], [], 1000),
     ?assertEqual({304, "Not Modified"}, status(Response)),
     ?assertEqual(<<>>, body(Response)).
 
 simple_head(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun head_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun head_response/5]),
     URL = url(Port, "/HEAD"),
     {ok, Response} = lhttpc:request(URL, "HEAD", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
     ?assertEqual(<<>>, body(Response)).
 
 simple_head_atom(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun head_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun head_response/5]),
     URL = url(Port, "/head"),
     {ok, Response} = lhttpc:request(URL, head, [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
     ?assertEqual(<<>>, body(Response)).
 
 delete_no_content(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun no_content_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun no_content_response/5]),
     URL = url(Port, "/delete_no_content"),
     {ok, Response} = lhttpc:request(URL, delete, [], 1000),
     ?assertEqual({204, "OK"}, status(Response)),
     ?assertEqual(<<>>, body(Response)).
 
 delete_content(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
     URL = url(Port, "/delete_content"),
     {ok, Response} = lhttpc:request(URL, "DELETE", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
     ?assertEqual(<<?DEFAULT_STRING>>, body(Response)).
 
 options_no_content(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun head_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun head_response/5]),
     URL = url(Port, "/options_no_content"),
     {ok, Response} = lhttpc:request(URL, "OPTIONS", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
     ?assertEqual(<<>>, body(Response)).
 
 options_content(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5]),
     URL = url(Port, "/options_content"),
     {ok, Response} = lhttpc:request(URL, "OPTIONS", [], 1000),
     ?assertEqual({200, "OK"}, status(Response)),
     ?assertEqual(<<?DEFAULT_STRING>>, body(Response)).
 
 server_connection_close(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun respond_and_close/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun respond_and_close/5]),
     URL = url(Port, "/close"),
     Body = pid_to_list(self()),
     {ok, Response} = lhttpc:request(URL, "PUT", [], Body, 1000),
@@ -375,7 +374,7 @@ server_connection_close(_Config) ->
     receive closed -> ok end.
 
 client_connection_close(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun respond_and_wait/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun respond_and_wait/5]),
     URL = url(Port, "/close"),
     Body = pid_to_list(self()),
     Hdrs = [{"Connection", "close"}],
@@ -384,7 +383,7 @@ client_connection_close(_Config) ->
     receive closed -> ok end.
 
 pre_1_1_server_connection(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun pre_1_1_server/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun pre_1_1_server/5]),
     URL = url(Port, "/close"),
     Body = pid_to_list(self()),
     {ok, _} = lhttpc:request(URL, put, [], Body, 1000),
@@ -394,7 +393,7 @@ pre_1_1_server_connection(_Config) ->
     receive closed -> ok end.
 
 pre_1_1_server_keep_alive(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [
             fun pre_1_1_server_keep_alive/5,
             fun pre_1_1_server/5
         ]),
@@ -416,7 +415,7 @@ simple_put(_Config) ->
     simple("PUT").
 
 post(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun copy_body/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun copy_body/5]),
     URL = url(Port, "/post"),
     {X, Y, Z} = erlang:timestamp(),
     Body = [
@@ -432,7 +431,7 @@ post(_Config) ->
     ?assertEqual(iolist_to_binary(Body), body(Response)).
 
 post_100_continue(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun copy_body_100_continue/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun copy_body_100_continue/5]),
     URL = url(Port, "/post"),
     {X, Y, Z} = erlang:timestamp(),
     Body = [
@@ -448,7 +447,7 @@ post_100_continue(_Config) ->
     ?assertEqual(iolist_to_binary(Body), body(Response)).
 
 persistent_connection(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [
             fun simple_response/5,
             fun simple_response/5,
             fun copy_body/5
@@ -466,12 +465,12 @@ persistent_connection(_Config) ->
     ?assertEqual(<<>>, body(ThirdResponse)).
 
 request_timeout(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun very_slow_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun very_slow_response/5]),
     URL = url(Port, "/slow"),
     ?assertEqual({error, timeout}, lhttpc:request(URL, get, [], 50)).
 
 connection_timeout(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
     URL = url(Port, "/close_conn"),
     lhttpc_manager:update_connection_timeout(lhttpc_manager, 50), % very short keep alive
     {ok, Response} = lhttpc:request(URL, get, [], 100),
@@ -483,7 +482,7 @@ connection_timeout(_Config) ->
     lhttpc_manager:update_connection_timeout(lhttpc_manager, 300000). % set back
 
 suspended_manager(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
     URL = url(Port, "/persistent"),
     {ok, FirstResponse} = lhttpc:request(URL, get, [], 50),
     ?assertEqual({200, "OK"}, status(FirstResponse)),
@@ -499,7 +498,9 @@ suspended_manager(_Config) ->
     ?assertEqual(<<?DEFAULT_STRING>>, body(SecondResponse)).
 
 chunked_encoding(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun chunked_response/5, fun chunked_response_t/5]),
+    Port = webserver:start(?PROJECT_ROOT,
+                           gen_tcp,
+                           [fun chunked_response/5, fun chunked_response_t/5]),
     URL = url(Port, "/chunked"),
     {ok, FirstResponse} = lhttpc:request(URL, get, [], 50),
     ?assertEqual({200, "OK"}, status(FirstResponse)),
@@ -517,7 +518,7 @@ chunked_encoding(_Config) ->
             headers(SecondResponse))).
 
 partial_upload_identity(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
     URL = url(Port, "/partial_upload"),
     Body = [<<"This">>, <<" is ">>, <<"chunky">>, <<" stuff!">>],
     Hdrs = [{"Content-Length", integer_to_list(iolist_size(Body))}],
@@ -539,7 +540,7 @@ partial_upload_identity(_Config) ->
         lhttpc_lib:header_value("x-test-orig-body", headers(Response2))).
 
 partial_upload_identity_iolist(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5, fun simple_response/5]),
     URL = url(Port, "/partial_upload"),
     Body = ["This", [<<" ">>, $i, $s, [" "]], <<"chunky">>, [<<" stuff!">>]],
     Hdrs = [{"Content-Length", integer_to_list(iolist_size(Body))}],
@@ -565,7 +566,7 @@ partial_upload_chunked(_Config) ->
     {skip, "Broken test case"}.
 -else.
 partial_upload_chunked(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun chunked_upload/5, fun chunked_upload/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun chunked_upload/5, fun chunked_upload/5]),
     URL = url(Port, "/partial_upload_chunked"),
     Body = ["This", [<<" ">>, $i, $s, [" "]], <<"chunky">>, [<<" stuff!">>]],
     Options = [{partial_upload, 1}],
@@ -601,7 +602,7 @@ partial_upload_chunked_no_trailer(_Config) ->
     {skip, "Broken test case"}.
 -else.
 partial_upload_chunked_no_trailer(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun chunked_upload/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun chunked_upload/5]),
     URL = url(Port, "/partial_upload_chunked_no_trailer"),
     Body = [<<"This">>, <<" is ">>, <<"chunky">>, <<" stuff!">>],
     Options = [{partial_upload, 1}],
@@ -622,7 +623,7 @@ partial_download_illegal_option(_Config) ->
             [{partial_download, [{foo, bar}]}])).
 
 partial_download_identity(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun large_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun large_response/5]),
     URL = url(Port, "/partial_download_identity"),
     PartialDownload = [
         {window_size, 1}
@@ -635,7 +636,7 @@ partial_download_identity(_Config) ->
     ?assertEqual(<<?LONG_BODY_PART ?LONG_BODY_PART ?LONG_BODY_PART>>, Body).
 
 partial_download_infinity_window(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun large_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun large_response/5]),
     URL = url(Port, "/partial_download_identity"),
     PartialDownload = [
         {window_size, infinity}
@@ -647,7 +648,7 @@ partial_download_infinity_window(_Config) ->
     ?assertEqual(<<?LONG_BODY_PART ?LONG_BODY_PART ?LONG_BODY_PART>>, Body).
 
 partial_download_no_content_length(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun no_content_length/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun no_content_length/5]),
     URL = url(Port, "/no_cl"),
     PartialDownload = [
         {window_size, 1}
@@ -659,7 +660,7 @@ partial_download_no_content_length(_Config) ->
     ?assertEqual(<<?DEFAULT_STRING>>, Body).
 
 partial_download_no_content(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun no_content_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun no_content_response/5]),
     URL = url(Port, "/partial_download_identity"),
     PartialDownload = [
         {window_size, 1}
@@ -671,7 +672,7 @@ partial_download_no_content(_Config) ->
     ?assertEqual(undefined, Body).
 
 limited_partial_download_identity(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun large_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun large_response/5]),
     URL = url(Port, "/partial_download_identity"),
     PartialDownload = [
         {window_size, 1},
@@ -685,7 +686,7 @@ limited_partial_download_identity(_Config) ->
     ?assertEqual(<<?LONG_BODY_PART ?LONG_BODY_PART ?LONG_BODY_PART>>, Body).
 
 partial_download_chunked(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun large_chunked_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun large_chunked_response/5]),
     URL = url(Port, "/partial_download_identity"),
     PartialDownload = [
         {window_size, 1},
@@ -699,7 +700,7 @@ partial_download_chunked(_Config) ->
     ?assertEqual(<<?LONG_BODY_PART ?LONG_BODY_PART ?LONG_BODY_PART>>, Body).
 
 partial_download_chunked_infinite_part(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun large_chunked_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun large_chunked_response/5]),
     URL = url(Port, "/partial_download_identity"),
     PartialDownload = [
         {window_size, 1},
@@ -713,7 +714,7 @@ partial_download_chunked_infinite_part(_Config) ->
     ?assertEqual(<<?LONG_BODY_PART ?LONG_BODY_PART ?LONG_BODY_PART>>, Body).
 
 partial_download_smallish_chunks(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun large_chunked_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun large_chunked_response/5]),
     URL = url(Port, "/partial_download_identity"),
     PartialDownload = [
         {window_size, 1},
@@ -727,7 +728,7 @@ partial_download_smallish_chunks(_Config) ->
     ?assertEqual(<<?LONG_BODY_PART ?LONG_BODY_PART ?LONG_BODY_PART>>, Body).
 
 partial_download_slow_chunks(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun slow_chunked_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun slow_chunked_response/5]),
     URL = url(Port, "/slow"),
     PartialDownload = [
         {window_size, 1},
@@ -740,13 +741,12 @@ partial_download_slow_chunks(_Config) ->
     ?assertEqual(<<?LONG_BODY_PART ?LONG_BODY_PART>>, Body).
 
 close_connection(_Config) ->
-    Port = start(?PROJECT_ROOT, gen_tcp, [fun close_connection/5]),
+    Port = webserver:start(?PROJECT_ROOT, gen_tcp, [fun close_connection/5]),
     URL = url(Port, "/close"),
-    ?assertEqual({error, connection_closed}, lhttpc:request(URL, "GET", [],
-            1000)).
+    ?assertEqual({error, connection_closed}, lhttpc:request(URL, "GET", [], 1000)).
 
 ssl_get(_Config) ->
-    Port = start(?PROJECT_ROOT, ssl, [fun simple_response/5]),
+    Port = webserver:start(?PROJECT_ROOT, ssl, [fun simple_response/5]),
     URL = ssl_url(Port, "/simple"),
     {ok, Response} = lhttpc:request(URL, "GET", [], <<>>, 1000, [{verify_ssl_cert, false}]),
     ?assertEqual({200, "OK"}, status(Response)),
@@ -757,7 +757,7 @@ ssl_get_ipv6(_Config) ->
     {skip, "IPv6 support not considered"}.
 -else.
 ssl_get_ipv6(_Config) ->
-    case start(?PROJECT_ROOT, ssl, [fun simple_response/5], inet6) of
+    case webserver:start(?PROJECT_ROOT, ssl, [fun simple_response/5], inet6) of
         {error, family_not_supported} ->
             % Localhost has no IPv6 support - not a big issue.
             {skip, "Impossible to test IPv6 support"};
@@ -770,7 +770,7 @@ ssl_get_ipv6(_Config) ->
 -endif.
 
 ssl_post(_Config) ->
-    Port = start(?PROJECT_ROOT, ssl, [fun copy_body/5]),
+    Port = webserver:start(?PROJECT_ROOT, ssl, [fun copy_body/5]),
     URL = ssl_url(Port, "/simple"),
     Body = "SSL Test <o/",
     BinaryBody = list_to_binary(Body),
@@ -779,7 +779,7 @@ ssl_post(_Config) ->
     ?assertEqual(BinaryBody, body(Response)).
 
 ssl_chunked(_Config) ->
-    Port = start(?PROJECT_ROOT, ssl, [fun chunked_response/5, fun chunked_response_t/5]),
+    Port = webserver:start(?PROJECT_ROOT, ssl, [fun chunked_response/5, fun chunked_response_t/5]),
     URL = ssl_url(Port, "/ssl_chunked"),
     FirstResult = lhttpc:request(URL, get, [], <<>>, 100, [{verify_ssl_cert, false}]),
     ?assertMatch({ok, _}, FirstResult),
@@ -833,7 +833,7 @@ simple(Method) ->
     simple(Method, inet).
 
 simple(Method, Family) ->
-    case start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5], Family) of
+    case webserver:start(?PROJECT_ROOT, gen_tcp, [fun simple_response/5], Family) of
         {error, family_not_supported} when Family =:= inet6 ->
             % Localhost has no IPv6 support - not a big issue.
             {skip, "Impossible to test IPv6 support"};

@@ -1,4 +1,4 @@
-%%% -*- coding: latin-1 -*-
+%%% -*- coding: utf-8 -*-
 %%% ----------------------------------------------------------------------------
 %%% Copyright (c) 2009, Erlang Training and Consulting Ltd.
 %%% All rights reserved.
@@ -26,7 +26,7 @@
 %%% ----------------------------------------------------------------------------
 
 %%------------------------------------------------------------------------------
-%%% @author Oscar Hellström <oscar@hellstrom.st>
+%%% @author Oscar HellstrÃ¶m <oscar@hellstrom.st>
 %%% @author Filipe David Manana <fdmanana@apache.org>
 %%% @doc Connection manager for the HTTP client.
 %%% This gen_server is responsible for keeping track of persistent
@@ -74,14 +74,18 @@
 -behaviour(gen_server).
 
 -record(state, {
-        destinations = dict:new(),
-        sockets = dict:new(),
-        clients = dict:new(), % Pid => {Dest, MonRef}
-        queues = dict:new(),  % Dest => queue of Froms
+        destinations = dict:new() :: destinations(),
+        sockets = dict:new() :: sockets(),
+        clients = dict:new() :: clients(), % Pid => {Dest, MonRef}
+        queues = dict:new() :: queues(),   % Dest => queue of Froms
         max_pool_size = 50 :: non_neg_integer(),
         timeout = 300000 :: non_neg_integer()
     }).
 -type state() :: #state{}.
+-type destinations() :: dict:dict(lhttpc:destination(), [lhttpc:socket()]).
+-type sockets() :: dict:dict(lhttpc:socket(), {lhttpc:destination(), reference()}).
+-type clients() :: dict:dict(pid(), {lhttpc:destination(), reference()}).
+-type queues() :: dict:dict(lhttpc:destination(), queue:queue(gen_server:from())).
 
 %%==============================================================================
 %% Exported functions
@@ -192,7 +196,7 @@ start_link(Options0) ->
 %%------------------------------------------------------------------------------
 -spec ensure_call(lhttpc:pool_id(), pid(), lhttpc:host(), lhttpc:port_num(), boolean(),
                   lhttpc:options()) ->
-                        lhttpc:socket() | 'no_socket'.
+                        lhttpc:socket() | 'undefined'.
 ensure_call(Pool, Pid, Host, Port, Ssl, Options) ->
     SocketRequest = {socket, Pid, Host, Port, Ssl},
     try gen_server:call(Pool, SocketRequest, infinity) of
@@ -246,13 +250,16 @@ client_done(Pool, Host, Port, Ssl, Socket) ->
     case lhttpc_sock:controlling_process(Socket, Pool, Ssl) of
         {ok, PoolPid} ->
             DoneMsg = {done, Host, Port, Ssl, Socket},
-            DeliveryStatus = (catch gen_server:call(PoolPid, DoneMsg, infinity)),
-            case DeliveryStatus of
-                {'EXIT', {noproc, _}} -> catch lhttpc_sock:close(Socket, Ssl);
-                {'EXIT', {killed, _}} -> catch lhttpc_sock:close(Socket, Ssl);
-                ok -> ok
-            end,
-            ok;
+            try
+                ok = gen_server:call(PoolPid, DoneMsg, infinity)
+            catch
+                exit:{noproc, _} ->
+                    _ = safe_close(Socket, Ssl),
+                    ok;
+                exit:{killed, _} ->
+                    _ = safe_close(Socket, Ssl),
+                    ok
+            end;
         _ ->
             ok
     end.
@@ -312,23 +319,22 @@ handle_call({connection_count, Destination}, _, State) ->
     {reply, Count, State};
 handle_call({done, Host, Port, Ssl, Socket}, {Pid, _} = From, State) ->
     gen_server:reply(From, ok),
-    FinalState = case catch
-        begin
+    FinalState =
+        try
             Dest = {Host, Port, Ssl},
             {Dest, MonRef} = dict:fetch(Pid, State#state.clients),
             true = erlang:demonitor(MonRef, [flush]),
             Clients2 = dict:erase(Pid, State#state.clients),
             deliver_socket(Socket, Dest, State#state{clients = Clients2})
-        end
-    of
-        #state{}=NewState ->
-            NewState;
-        UnexpectedExc ->
-            CloseStatus = (catch lhttpc_sock:close(Socket, Ssl)),
-            error_logger:info_msg("lhttpc_manager, unrecognized socket (close_status ~p) is done "
-                                  "(error ~p)", [CloseStatus, UnexpectedExc]),
-            State
-    end,
+        catch
+            Class:Reason:Stacktrace ->
+                CloseStatus = safe_close(Socket, Ssl),
+                error_logger:info_msg("lhttpc_manager, unrecognized socket (close_status ~p) "
+                                      "is done (error ~p:~p, stacktrace ~p)",
+                                      [CloseStatus, Class, Reason, Stacktrace]),
+                State
+        end,
+
     {noreply, FinalState};
 handle_call(_, _, State) ->
     {reply, {error, unknown_request}, State}.
@@ -397,6 +403,8 @@ code_change(_, State, _) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec find_socket(lhttpc:destination(), pid(), state()) ->
+    {{'ok', lhttpc:socket()} | 'no_socket', state()}.
 find_socket({_, _, Ssl} = Dest, Pid, State) ->
     Dests = State#state.destinations,
     case dict:find(Dest, Dests) of
@@ -424,6 +432,7 @@ find_socket({_, _, Ssl} = Dest, Pid, State) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec remove_socket(lhttpc:socket(), state()) -> state().
 remove_socket(Socket, State) ->
     Dests = State#state.destinations,
     case dict:find(Socket, State#state.sockets) of
@@ -442,6 +451,7 @@ remove_socket(Socket, State) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec store_socket(lhttpc:destination(), lhttpc:socket(), state()) -> state().
 store_socket({_, _, Ssl} = Dest, Socket, State) ->
     Timeout = State#state.timeout,
     Timer = erlang:send_after(Timeout, self(), {timeout, Socket}),
@@ -460,6 +470,7 @@ store_socket({_, _, Ssl} = Dest, Socket, State) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec update_dest(lhttpc:destination(), [lhttpc:socket()], destinations()) -> destinations().
 update_dest(Destination, [], Destinations) ->
     dict:erase(Destination, Destinations);
 update_dest(Destination, Sockets, Destinations) ->
@@ -468,6 +479,7 @@ update_dest(Destination, Sockets, Destinations) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec close_sockets(sockets()) -> ok.
 close_sockets(Sockets) ->
     lists:foreach(fun({Socket, {{_, _, Ssl}, Timer}}) ->
                 lhttpc_sock:close(Socket, Ssl),
@@ -477,6 +489,7 @@ close_sockets(Sockets) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec cancel_timer(reference(), lhttpc:socket()) -> ok.
 cancel_timer(Timer, Socket) ->
     case erlang:cancel_timer(Timer) of
         false ->
@@ -491,6 +504,7 @@ cancel_timer(Timer, Socket) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec add_to_queue(lhttpc:destination(), gen_server:from(), queues()) -> queues().
 add_to_queue({_Host, _Port, _Ssl} = Dest, From, Queues) ->
     case dict:find(Dest, Queues) of
         error ->
@@ -502,6 +516,8 @@ add_to_queue({_Host, _Port, _Ssl} = Dest, From, Queues) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec queue_out(lhttpc:destination(), queues()) ->
+    'empty' | {'ok', gen_server:from(), queues()}.
 queue_out({_Host, _Port, _Ssl} = Dest, Queues) ->
     case dict:find(Dest, Queues) of
         error ->
@@ -520,6 +536,7 @@ queue_out({_Host, _Port, _Ssl} = Dest, Queues) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec deliver_socket(lhttpc:socket(), lhttpc:destination(), state()) -> state().
 deliver_socket(Socket, {_, _, Ssl} = Dest, State) ->
     case queue_out(Dest, State#state.queues) of
         empty ->
@@ -534,7 +551,7 @@ deliver_socket(Socket, {_, _, Ssl} = Dest, State) ->
                     lhttpc_sock:setopts(Socket, [{active, once}], Ssl),
                     deliver_socket(Socket, Dest, State#state{queues = Queues2});
                 _ -> % Something wrong with the socket; just remove it
-                    catch lhttpc_sock:close(Socket, Ssl),
+                    _ = safe_close(Socket, Ssl),
                     State
             end
     end.
@@ -542,6 +559,7 @@ deliver_socket(Socket, {_, _, Ssl} = Dest, State) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec monitor_client(lhttpc:destination(), gen_server:from(), state()) -> state().
 monitor_client(Dest, {Pid, _} = _From, State) ->
     MonRef = erlang:monitor(process, Pid),
     Clients2 = dict:store(Pid, {Dest, MonRef}, State#state.clients),
@@ -550,6 +568,7 @@ monitor_client(Dest, {Pid, _} = _From, State) ->
 %------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+-spec maybe_apply_defaults([atom()], [{atom(), term()}]) -> [{atom(), term()}].
 maybe_apply_defaults([], Options) ->
     Options;
 maybe_apply_defaults([OptName | Rest], Options) ->
@@ -559,4 +578,15 @@ maybe_apply_defaults([OptName | Rest], Options) ->
         false ->
             {ok, Default} = application:get_env(lhttpc, OptName),
             maybe_apply_defaults(Rest, [{OptName, Default} | Options])
+    end.
+
+%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+-spec safe_close(lhttpc:socket(), boolean()) -> ok | {error, term()}.
+safe_close(Socket, Ssl) ->
+    try
+        lhttpc_sock:close(Socket, Ssl)
+    catch
+        Class:Reason -> {error, {Class, Reason}}
     end.

@@ -1,5 +1,5 @@
 %% @hidden
-%%% -*- coding: latin-1 -*-
+%%% -*- coding: utf-8 -*-
 %%% ----------------------------------------------------------------------------
 %%% Copyright (c) 2009, Erlang Training and Consulting Ltd.
 %%% All rights reserved.
@@ -28,7 +28,7 @@
 
 %%------------------------------------------------------------------------------
 %%% @private
-%%% @author Oscar Hellström <oscar@hellstrom.st>
+%%% @author Oscar HellstrÃ¶m <oscar@hellstrom.st>
 %%% @doc
 %%% This module implements various library functions used in lhttpc.
 %%------------------------------------------------------------------------------
@@ -85,6 +85,7 @@ header_value(Hdr, Headers, Default) ->
 %% @doc
 %% @end
 %%------------------------------------------------------------------------------
+-spec canonical_headers(lhttpc:headers()) -> [{string(), iodata()}].
 canonical_headers(Headers) ->
     [canonical_header(Header) || Header <- Headers].
 
@@ -92,9 +93,11 @@ canonical_headers(Headers) ->
 %% @doc
 %% @end
 %%------------------------------------------------------------------------------
+-spec canonical_header({lhttpc:header(), iodata()}) -> {string(), iodata()}.
 canonical_header({Name, Value}) ->
     {canonical_header_name(Name), Value}.
 
+-spec canonical_header_name(atom() | binary() | [byte()]) -> [byte()].
 canonical_header_name(Name) when is_list(Name) ->
     string:to_lower(Name);
 canonical_header_name(Name) when is_atom(Name) ->
@@ -118,7 +121,7 @@ maybe_atom_to_list(List) ->
 %% @doc
 %% @end
 %%------------------------------------------------------------------------------
--spec parse_url(string()) -> lhttpc_client:lhttpc_url().
+-spec parse_url(nonempty_string()) -> lhttpc_client:lhttpc_url().
 parse_url(URL) ->
     % XXX This should be possible to do with the re module?
     {Scheme, CredsHostPortPath} = split_scheme(URL),
@@ -189,6 +192,7 @@ format_hdrs(Headers) ->
 %% @doc
 %% @end
 %%------------------------------------------------------------------------------
+-spec split_scheme(string()) -> {'http' | 'https', string()}.
 split_scheme("http://" ++ HostPortPath) ->
     {http, HostPortPath};
 split_scheme("https://" ++ HostPortPath) ->
@@ -199,6 +203,7 @@ split_scheme("https://" ++ HostPortPath) ->
 %% @doc
 %% @end
 %%------------------------------------------------------------------------------
+-spec split_credentials(string()) -> {string(), string(), nonempty_string()}.
 split_credentials(CredsHostPortPath) ->
     case string:tokens(CredsHostPortPath, "@") of
         [HostPortPath] ->
@@ -218,19 +223,10 @@ split_credentials(CredsHostPortPath) ->
             end
     end.
 
--ifdef(OTP_RELEASE).
--if(?OTP_RELEASE >= 23).
+-spec parse_query_string(string()) -> string().
 parse_query_string(User0) ->
     [{User, true}] = uri_string:dissect_query(User0),
     User.
--else.
-parse_query_string(User) ->
-    http_uri:decode(User).
--endif.
--else.
-parse_query_string(User) ->
-    http_uri:decode(User).
--endif.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -271,6 +267,7 @@ split_host([], Host) ->
 %% @doc
 %% @end
 %%------------------------------------------------------------------------------
+-spec split_port('http' | 'https', string(), string()) -> {lhttpc:port_num(), string()}.
 split_port(http, [$/ | _] = Path, []) ->
     {80, Path};
 split_port(https, [$/ | _] = Path, []) ->
@@ -291,6 +288,7 @@ split_port(Scheme, [P | T], Port) ->
 %% @doc
 %% @end
 %%------------------------------------------------------------------------------
+-spec format_hdrs(lhttpc:headers(), iolist()) -> iolist().
 format_hdrs([{Hdr, Value} | T], Acc) ->
     NewAcc =
         [Hdr, ": ", Value, "\r\n" | Acc],

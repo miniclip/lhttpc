@@ -1,4 +1,4 @@
-%%% -*- coding: latin-1 -*-
+%%% -*- coding: utf-8 -*-
 %%% ----------------------------------------------------------------------------
 %%% Copyright (c) 2009, Erlang Training and Consulting Ltd.
 %%% All rights reserved.
@@ -25,7 +25,7 @@
 %%% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%% ----------------------------------------------------------------------------
 
-%%% @author Oscar Hellström <oscar@hellstrom.st>
+%%% @author Oscar HellstrÃ¶m <oscar@hellstrom.st>
 %%% @author Filipe David Manana <fdmanana@apache.org>
 -module(lhttpc_manager_tests).
 
@@ -71,7 +71,7 @@ empty_manager() ->
     ?assertEqual(ok, stop_client(Client)),
     ?assertEqual(0, lhttpc_manager:connection_count(lhttpc_manager)),
 
-    catch gen_tcp:close(LS),
+    safe_close(LS),
     unlink(whereis(lhttpc_manager)),
     ok.
 
@@ -103,7 +103,7 @@ one_socket() ->
 
     ?assertEqual(ok, stop_client(Client1)),
     ?assertEqual(ok, stop_client(Client2)),
-    catch gen_tcp:close(LS),
+    safe_close(LS),
     unlink(whereis(lhttpc_manager)),
     ok.
 
@@ -141,7 +141,7 @@ connection_timeout() ->
     ?assertEqual(ok, ping_client(Client)),
     ?assertEqual(1, lhttpc_manager:connection_count(lhttpc_manager)),
 
-    catch gen_tcp:close(LS),
+    safe_close(LS),
     ?assertEqual(ok, stop_client(Client)),
     unlink(whereis(lhttpc_manager)),
     ok.
@@ -266,7 +266,7 @@ many_sockets() ->
     lhttpc_manager ! {tcp_closed, Socket3},
     ?assertEqual(0, lhttpc_manager:connection_count(lhttpc_manager)),
 
-    catch gen_tcp:close(LS),
+    safe_close(LS),
     ?assertEqual(ok, stop_client(Client1)),
     ?assertEqual(ok, stop_client(Client2)),
     ?assertEqual(ok, stop_client(Client3)),
@@ -314,7 +314,7 @@ closed_race_cond() ->
     ?assertEqual(0, lhttpc_manager:connection_count(lhttpc_manager)),
 
     ?assertEqual(ok, stop_client(Client)),
-    catch gen_tcp:close(LS),
+    safe_close(LS),
     unlink(whereis(lhttpc_manager)),
     ok.
 
@@ -327,7 +327,7 @@ spawn_client() ->
 client_loop(Parent, Socket) ->
     receive
         stop ->
-            catch gen_tcp:close(Socket),
+            safe_close(Socket),
             Parent ! stopped;
         {get_socket, Ref} ->
             Parent ! {socket, Ref, Socket},
@@ -419,3 +419,11 @@ stop_client(Client) ->
 get_port() ->
     {ok, P} = application:get_env(lhttpc, test_port),
     P.
+
+-spec safe_close(gen_tcp:socket()) -> ok | {error, term()}.
+safe_close(Socket) ->
+    try
+        gen_tcp:close(Socket)
+    catch
+        Class:Reason -> {error, {Class, Reason}}
+    end.

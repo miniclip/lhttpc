@@ -1,4 +1,4 @@
-%%% -*- coding: latin-1 -*-
+%%% -*- coding: utf-8 -*-
 %%% ----------------------------------------------------------------------------
 %%% Copyright (c) 2009, Erlang Training and Consulting Ltd.
 %%% All rights reserved.
@@ -26,7 +26,7 @@
 %%% ----------------------------------------------------------------------------
 
 %%------------------------------------------------------------------------------
-%%% @author Oscar Hellström <oscar@hellstrom.st>
+%%% @author Oscar HellstrÃ¶m <oscar@hellstrom.st>
 %%% @doc Main interface to the lightweight http client.
 %%% See {@link request/4}, {@link request/5} and {@link request/6} functions.
 %%% @end
@@ -80,7 +80,7 @@
 -type bodypart() :: iodata() | 'http_eob'.
 -export_type([bodypart/0]).
 
--type socket() :: _.
+-type socket() :: inet:socket() | ssl:sslsocket().
 -export_type([socket/0]).
 
 -type port_num() :: 1..65535.
@@ -194,7 +194,7 @@ stop() ->
 %% @doc Add a new named httpc_manager pool to the supervisor tree
 %% @end
 %%------------------------------------------------------------------------------
--spec add_pool(atom()) -> {ok, pid()} | {error, already_exists|term()}.
+-spec add_pool(atom()) -> {ok, pid()} | {error, already_exists | term()}.
 add_pool(Name) when is_atom(Name) ->
     {ok, ConnTimeout} = application:get_env(lhttpc, connection_timeout),
     {ok, PoolSize} = application:get_env(lhttpc, pool_size),
@@ -206,7 +206,7 @@ add_pool(Name) when is_atom(Name) ->
 %% @doc Add a new httpc_manager to the supervisor tree
 %% @end
 %%------------------------------------------------------------------------------
--spec add_pool(atom(), pos_integer()) -> {ok, pid()} | {error, already_exists|term()}.
+-spec add_pool(atom(), pos_integer()) -> {ok, pid()} | {error, already_exists | term()}.
 add_pool(Name, ConnTimeout) when is_atom(Name),
                                  is_integer(ConnTimeout),
                                  ConnTimeout > 0 ->
@@ -218,7 +218,7 @@ add_pool(Name, ConnTimeout) when is_atom(Name),
 %% @end
 %%------------------------------------------------------------------------------
 -spec add_pool(atom(), non_neg_integer(), poolsize()) ->
-          {ok, pid()} | {error, already_exists|term()}.
+          {ok, pid()} | {error, already_exists | term()}.
 add_pool(Name, ConnTimeout, PoolSize) ->
     ChildSpec = {Name,
                  {lhttpc_manager, start_link, [[{name, Name},
@@ -608,15 +608,19 @@ kill_client(Pid) ->
 %% @private
 %%------------------------------------------------------------------------------
 -spec verify_options(options()) -> ok.
-verify_options([{send_retry, N} | Options]) when is_integer(N), N >= 0 ->
+verify_options([{send_retry, N} | Options])
+    when is_integer(N) andalso
+         N >= 0 ->
     verify_options(Options);
 verify_options([{connect_timeout, infinity} | Options]) ->
     verify_options(Options);
 verify_options([{connect_timeout, MS} | Options])
-        when is_integer(MS), MS >= 0 ->
+    when is_integer(MS) andalso
+         MS >= 0 ->
     verify_options(Options);
 verify_options([{partial_upload, WindowSize} | Options])
-        when is_integer(WindowSize), WindowSize >= 0 ->
+        when is_integer(WindowSize) andalso
+             WindowSize >= 0 ->
     verify_options(Options);
 verify_options([{partial_upload, infinity} | Options])  ->
     verify_options(Options);
@@ -631,7 +635,8 @@ verify_options([{proxy, List} | Options]) when is_list(List) ->
 verify_options([{proxy_ssl_options, List} | Options]) when is_list(List) ->
     verify_options(Options);
 verify_options([{pool, PidOrName} | Options])
-        when is_pid(PidOrName); is_atom(PidOrName) ->
+        when is_pid(PidOrName) orelse
+             is_atom(PidOrName) ->
     verify_options(Options);
 verify_options([{pool_ensure, Bool} | Options])
         when is_boolean(Bool) ->
@@ -641,7 +646,7 @@ verify_options([{pool_connection_timeout, Size} | Options])
     verify_options(Options);
 verify_options([{pool_max_size, Size} | Options])
         when is_integer(Size) orelse
-             Size =:= infinity->
+             Size =:= infinity ->
     verify_options(Options);
 verify_options([{use_pool, UsePool} | Options])
         when is_boolean(UsePool) ->
@@ -658,7 +663,7 @@ verify_options([]) ->
 %% @private
 %%------------------------------------------------------------------------------
 -spec verify_partial_download([partial_download_option()]) -> ok.
-verify_partial_download([{window_size, infinity} | Options])->
+verify_partial_download([{window_size, infinity} | Options]) ->
     verify_partial_download(Options);
 verify_partial_download([{window_size, Size} | Options]) when
         is_integer(Size), Size >= 0 ->

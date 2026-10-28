@@ -34,7 +34,7 @@
     {registered, []},
     {mod, {lhttpc, nil}},
     {pkg_name, mc_lhttpc},
-    {licenses, ["BSD License"]},
+    {licenses, ["BSD-3-Clause"]},
     {links, [{"GitHub", "https://github.com/miniclip/lhttpc"}]},
 
     {applications, [
